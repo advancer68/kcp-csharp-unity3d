@@ -9,7 +9,6 @@ public class TestTcp : MonoBehaviour {
 	void Start () {
         //wthandle = new EventWaitHandle();
         //ThreadPool.QueueUserWorkItem()
-        var q = new Queue<int>();
 	}
 	
 	// Update is called once per frame

@@ -62,7 +62,7 @@ public class TestKcp : MonoBehaviour
     // Use this for initialization
     void Start()
     {
-        Debug.LogFormat("now time:{0}", kcpUtil.iclock);
+        Debug.LogFormat("now time:{0}", kcpUtil.nowTotalMilliseconds);
         //enabled = false;
         if (runOnStart)
         {
@@ -75,7 +75,7 @@ public class TestKcp : MonoBehaviour
         //enabled = true;
         kcpClient = new UdpSocket((buff) =>
         {
-            var rcvtime = kcpUtil.iclock;
+            var rcvtime = kcpUtil.nowTotalMilliseconds;
             var sndtime = BitConverter.ToUInt32(buff, 0);
             var usetime = rcvtime - sndtime;
             pckCntFrmTime += usetime;
@@ -133,12 +133,13 @@ public class TestKcp : MonoBehaviour
     public void SendTestBuff()
     {
         var buff = new byte[msgSize];
+        buff.PackInSendTime();
+        buff.PackInInt(rttKcp, 4);
         buff.PackInInt(mLosePackRate, 8);
         if (kcpClient != null)
         {
             if (kcpClient.Connected)
             {
-                buff.PackInInt(rttKcp, 4);
                 kcpClient.Send(buff);
             }
         }

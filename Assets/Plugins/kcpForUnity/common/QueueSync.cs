@@ -56,9 +56,7 @@ public class QueueSync<T>
     {
         lock (locker)
         {
-            var temp = inQue;
-            inQue = outQue;
-            outQue = temp;
+            kcpUtil.Swap(ref inQue, ref outQue);
         }
     }
     public void Enqueue(T item)

@@ -78,7 +78,7 @@ public class Kcp
     private int nocwnd;
     private bool stream;
     private int logmask;
-    private Action<ByteBuf> output;
+    private Action<ByteBuf> outputFunc;
     private int nextUpdate;//the next update time.
 
     private static int _ibound_(int lower, int middle, int upper)
@@ -180,7 +180,7 @@ public class Kcp
         dead_link = IKCP_DEADLINK;
         rcv_nxt = 0;
         buffer = new ByteBuf((mtu + IKCP_OVERHEAD) * 3);
-        this.output = output;
+        this.outputFunc = output;
     }
 
     /**
@@ -722,6 +722,12 @@ public class Kcp
     {
         updated = 1;
         current = cur;
+        Flush();
+    }
+    private void Output(ByteBuf buf)
+    {
+        outputFunc(buf);
+        buf.Clear();
     }
     /**
      * flush pending data
@@ -746,8 +752,7 @@ public class Kcp
         {
             if (buffer.PeekSize() + IKCP_OVERHEAD > mtu)
             {
-                this.output(buffer);
-                buffer = new ByteBuf((mtu + IKCP_OVERHEAD) * 3);
+                this.Output(buffer);
             }
             seg.sn = acklist[i * 2 + 0];
             seg.ts = acklist[i * 2 + 1];
@@ -788,8 +793,7 @@ public class Kcp
             seg.cmd = IKCP_CMD_WASK;
             if (buffer.PeekSize() + IKCP_OVERHEAD > mtu)
             {
-                this.output(buffer);
-                buffer = new ByteBuf((mtu + IKCP_OVERHEAD) * 3);
+                this.Output(buffer);
             }
             seg.Encode(buffer);
         }
@@ -799,8 +803,7 @@ public class Kcp
             seg.cmd = IKCP_CMD_WINS;
             if (buffer.PeekSize() + IKCP_OVERHEAD > mtu)
             {
-                this.output(buffer);
-                buffer = new ByteBuf((mtu + IKCP_OVERHEAD) * 3);
+                this.Output(buffer);
             }
             seg.Encode(buffer);
         }
@@ -885,8 +888,7 @@ public class Kcp
                 int need = IKCP_OVERHEAD + segment.data.PeekSize();
                 if (buffer.PeekSize() + need > mtu)
                 {
-                    this.output(buffer);
-                    buffer = new ByteBuf((mtu + IKCP_OVERHEAD) * 3);
+                    this.Output(buffer);
                 }
                 segment.Encode(buffer);
                 if (segment.data.PeekSize() > 0)
@@ -902,8 +904,7 @@ public class Kcp
         // flash remain segments
         if (buffer.PeekSize() > 0)
         {
-            this.output(buffer);
-            buffer = new ByteBuf((mtu + IKCP_OVERHEAD) * 3);
+            this.Output(buffer);
         }
         // update ssthresh
         if (change != 0)
@@ -1027,10 +1028,10 @@ public class Kcp
         {
             return -1;
         }
-        ByteBuf buf = new ByteBuf((mtu + IKCP_OVERHEAD) * 3);
+        //ByteBuf buf = new ByteBuf((mtu + IKCP_OVERHEAD) * 3);
         this.mtu = mtu;
         mss = mtu - IKCP_OVERHEAD;
-        this.buffer = buf;
+        buffer.Capacity((mtu + IKCP_OVERHEAD) * 3);
         return 0;
     }
 

@@ -4,7 +4,6 @@ using System.Collections.Generic;
 public class BytePacker
 {
     private List<byte> cache = new List<byte>(1024);
-    private ByteBuf cache1 = new ByteBuf(1024);
     private int pkgLengthByteSize = 4;//
     private byte[] pkgLengthBytes;
     private int curPkgSize = -1;
@@ -20,17 +19,9 @@ public class BytePacker
         Array.Copy(content, 0, buf, offset, content.Length);
         return buf;
     }
-    public void Pack(ByteBuf content)
-    {
-        content.WriteIntLE(content.PeekSize());
-    }
     public BytePacker(Action<byte[]> call)
     {
         func = call;
-    }
-    public void Recv(ByteBuf buff)
-    {
-        
     }
     public void Recv(byte[] buff)
     {

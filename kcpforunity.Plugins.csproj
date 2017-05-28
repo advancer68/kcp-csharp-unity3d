@@ -74,11 +74,14 @@
   <ItemGroup>
     <Compile Include="Assets\Plugins\kcpForUnity\TcpSocket.cs" />
     <Compile Include="Assets\Plugins\kcpForUnity\UdpSocket.cs" />
+    <Compile Include="Assets\Plugins\kcpForUnity\common\ByteBuf.cs" />
+    <Compile Include="Assets\Plugins\kcpForUnity\common\ByteBufSync.cs" />
     <Compile Include="Assets\Plugins\kcpForUnity\common\BytePacker.cs" />
+    <Compile Include="Assets\Plugins\kcpForUnity\common\ObjectPool.cs" />
+    <Compile Include="Assets\Plugins\kcpForUnity\common\ObjectPoolSync2.cs" />
     <Compile Include="Assets\Plugins\kcpForUnity\common\QueueSync.cs" />
     <Compile Include="Assets\Plugins\kcpForUnity\common\kcp.cs" />
     <Compile Include="Assets\Plugins\kcpForUnity\common\kcpUtil.cs" />
-    <Compile Include="Assets\Plugins\kcpForUnity\common\switch_queue.cs" />
     <Compile Include="Assets\Plugins\kcpForUnity\common\testUtil.cs" />
   </ItemGroup>
   <ItemGroup>

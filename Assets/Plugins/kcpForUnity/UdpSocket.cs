@@ -18,19 +18,15 @@ namespace KcpProject.v2
             Disconnect
         }
         public static int lostPackRate = 10;
-        private static readonly DateTime utc_time = new DateTime(1970, 1, 1);
         private BytePacker packer;
         private ByteBuf rcvCache = new ByteBuf(1500);
         private State state = State.Disconnect;
         public bool rcvSync = false;
-        public static UInt32 iclock()
-        {
-            return (UInt32)(Convert.ToInt64(DateTime.UtcNow.Subtract(utc_time).TotalMilliseconds) & 0xffffffff);
-        }
 
         private UdpClient mUdpClient;
         private IPEndPoint mIPEndPoint;
         private IPEndPoint mSvrEndPoint;
+        private int nxtPacketSize = -1;
         private Kcp mKcp;
         public int rtt = 0;
 
@@ -64,14 +60,14 @@ namespace KcpProject.v2
         public bool Connected { get { return state == State.Connect; } }
         void init_kcp(UInt32 conv)
         {
-           /* mKcp = new Kcp(conv, (ByteBuf buf) =>
+            mKcp = new Kcp((int)conv, (ByteBuf buf) =>
             {
                 //if (kcpUtil.CountIncludePercent(lostPackRate))
-               // if (testUtil.RandIncludePercent(100- lostPackRate))
+                if (testUtil.RandIncludePercent(100- lostPackRate))
                 {
-                   // mUdpClient.Send(buf., buf);
+                    mUdpClient.Send(buf.GetRaw(), buf.PeekSize());
                 }
-            });*/
+            });
 
             // fast mode.
             mKcp.NoDelay(1, 1, 2, 1);
@@ -86,10 +82,6 @@ namespace KcpProject.v2
 
             if (null != data)
             {
-                // push udp packet to switch queue.
-                //mRecvQueue.Push(data);
-                //var dt = new byte[data.Length];//data.copyAll();
-                //Array.Copy(data, dt, data.Length);
                 var dt = new ByteBuf(data);
                 rcv_queue.Enqueue(dt);
                 //rcv_notify.Set();
@@ -103,20 +95,46 @@ namespace KcpProject.v2
         }
 
         public void Send(byte[] buf)
-        { 
-            snd_queue.Enqueue(new ByteBuf(buf));
+        {
+            var btBuf = new ByteBuf(buf.Length + 4);
+            btBuf.WriteIntLE(buf.Length);
+            btBuf.WriteBytes(buf);
+            snd_queue.Enqueue(btBuf);
         }
         private void SendPacket(ByteBuf content)
         {
-            //content.PackInSendTime();
-            packer.Pack(content);
-
             mKcp.Send(content);
         }
         public void Close()
         {
             state = State.Disconnect;
             mUdpClient.Close();
+        }
+        public void Unpack(ByteBuf buf)
+        {
+            while (true)
+            {
+                if (nxtPacketSize < 0)
+                {
+                    if (buf.PeekSize() >= 4)
+                    {
+                        nxtPacketSize = buf.ReadIntLE();
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                if (buf.PeekSize() >= nxtPacketSize )
+                {
+                    //var data = buf.read
+                    
+                }
+                else
+                {
+                    break;
+                }
+            }
         }
         void process_kcpio_queue(object state)
         {
@@ -136,19 +154,19 @@ namespace KcpProject.v2
                     rcv_queue.DequeueAll(it =>
                     {
                         mKcp.Input(it);
-
                     });
+                    rcvCache.Clear();
+                    //rcvCache.Capacity(peekSize);
                     while (true)
                     {
                         int peekSize = mKcp.PeekSize();
                         if (peekSize > 0)
                         {
-                            rcvCache.Clear();
-                            rcvCache.Capacity(peekSize);
                             int rcvSize = mKcp.Receive(rcvCache);
                             if (rcvSize > 0)
                             {
-                                packer.Recv(rcvCache);
+                                //packer.Recv(rcvCache);
+                                Unpack(rcvCache);
                             }
                             else { break; }
                         }

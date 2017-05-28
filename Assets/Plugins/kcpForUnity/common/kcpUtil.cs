@@ -13,6 +13,10 @@ public static class kcpUtil
         Array.Copy(self, it, self.Length);
         return it;
     }
+    public static UInt32 ReadUint32(this byte[] self,int startIndx)
+    {
+        return BitConverter.ToUInt32(self, startIndx);
+    }
     public static void CopyTo<T>(this T[] self,int sourceIndex,T[] dest,int destIndex,int count)
     {
         Array.Copy(self, sourceIndex, dest, destIndex, count);

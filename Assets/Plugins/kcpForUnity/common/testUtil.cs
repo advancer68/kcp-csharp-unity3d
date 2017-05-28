@@ -26,11 +26,6 @@ public static class testUtil{
         count++;
         return false;
     }
-    public static void PackInSendTime(this ByteBuf self)
-    {
-        //self.PackInInt((int)kcpUtil.nowTotalMilliseconds, 0);
-        self.WriteIntLE((int)kcpUtil.nowTotalMilliseconds);
-    }
     public static void PackInSendTime(this byte[] self)
     {
         self.PackInInt((int)kcpUtil.nowTotalMilliseconds, 0);
