@@ -15,36 +15,8 @@ public static class kcpUtil
         Array.Copy(self, it, self.Length);
         return it;
     }
-    public static void sliceTo<T>(this IList<T> self, IList<T> target, int start, int stop, bool isclear = false)
+    public static void CopyTo<T>(this T[] self,int sourceIndex,T[] dest,int destIndex,int count)
     {
-        if (isclear)
-        {
-            target.Clear();
-        }
-        //var length = stop - start;
-        for (int i = start; i < stop; i++)
-        {
-            target.Add(self[i]);
-        }
-    }
-    /// <summary>
-    /// retain index start to stop,content start,not content stop
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
-    /// <param name="self"></param>
-    /// <param name="start"></param>
-    /// <param name="stop"></param>
-    public static void retainAndRemoveOther<T>(this List<T> self, int start, int stop)
-    {
-        var count = stop - start;
-        self.RemoveRange(0, start);
-        self.RemoveRange(count, self.Count);
-    }
-    public static List<T> subToList<T>(this List<T> self, int start, int stop)
-    {
-        var length = stop - start;
-        var slist = new List<T>(length);
-        self.sliceTo(slist, start, stop, false);
-        return slist;
+        Array.Copy(self, sourceIndex, dest, destIndex, count);
     }
 }
