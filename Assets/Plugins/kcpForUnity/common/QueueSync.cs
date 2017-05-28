@@ -2,6 +2,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+/// <summary>
+/// this Queue use to multiple thread Enqueue and one thread dequeue;
+/// not use to multiple thread dequeue
+/// </summary>
+/// <typeparam name="T"></typeparam>
 
 public class QueueSync<T>
 {
@@ -32,6 +37,10 @@ public class QueueSync<T>
         }
     }
 
+    private T DequeueUnsafe()
+    {
+        return outQue.Dequeue();
+    }
     public T Dequeue()
     {
         T t;
@@ -42,18 +51,10 @@ public class QueueSync<T>
         t = DequeueUnsafe();
         return t;
     }
-    public T DequeueUnsafe()
-    {
-        return outQue.Dequeue();
-    }
-    public void Enqueue(T item)
-    {
-        lock (locker)
-        {
-            inQue.Enqueue(item);
-        }
-    }
-    public void Switch()
+    /// <summary>
+    /// Switch The InQue outQue used to foreach
+    /// </summary>
+    private void Switch()
     {
         lock (locker)
         {
@@ -62,25 +63,34 @@ public class QueueSync<T>
             outQue = inQue;
         }
     }
-    public void DequeueAll(Action<T> func)
+    public void Enqueue(T item)
     {
-        //lock (locker)
+        lock (locker)
         {
-            while (outQue.Count > 0)
-            {
-                T it = outQue.Dequeue();
-                if (it == null)
-                {
-                    break;
-                }
-                else
-                {
-                    func(it);
-                }
-            }
-            Switch();
+            inQue.Enqueue(item);
         }
     }
+    /// <summary>
+    /// dequeue All in outQue items only used one thread
+    /// </summary>
+    /// <param name="func"></param>
+    public void DequeueAll(Action<T> func)
+    {
+        if (func == null)
+        {
+            return;
+        }
+        Switch();
+        while (outQue.Count > 0)
+        {
+            T it = outQue.Dequeue();
+            func(it);
+        }
+    }
+    /// <summary>
+    /// peek on item
+    /// </summary>
+    /// <returns></returns>
     public T Peek()
     {
         T item;
