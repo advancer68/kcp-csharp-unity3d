@@ -1,6 +1,4 @@
-﻿using UnityEngine;
-using System;
-using System.Collections;
+﻿using System;
 using System.Collections.Generic;
 /// <summary>
 /// this Queue use to multiple thread Enqueue and one thread dequeue;
@@ -60,7 +58,7 @@ public class QueueSync<T>
         {
             var temp = inQue;
             inQue = outQue;
-            outQue = inQue;
+            outQue = temp;
         }
     }
     public void Enqueue(T item)

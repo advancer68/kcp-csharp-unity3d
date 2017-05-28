@@ -26,9 +26,14 @@ public static class testUtil{
         count++;
         return false;
     }
+    public static void PackInSendTime(this ByteBuf self)
+    {
+        //self.PackInInt((int)kcpUtil.nowTotalMilliseconds, 0);
+        self.WriteIntLE((int)kcpUtil.nowTotalMilliseconds);
+    }
     public static void PackInSendTime(this byte[] self)
     {
-        self.PackInInt((int)kcpUtil.iclock, 0);
+        self.PackInInt((int)kcpUtil.nowTotalMilliseconds, 0);
     }
     public static void PackInInt(this byte[] self, int value, int index)
     {
@@ -42,6 +47,6 @@ public static class testUtil{
     public static int GetRTT(this byte[] self)
     {
         var sndTime = self.Unpack2Int(0);
-        return (int)kcpUtil.iclock - sndTime;
+        return (int)kcpUtil.nowTotalMilliseconds - sndTime;
     }
 }
