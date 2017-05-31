@@ -1,6 +1,6 @@
 ﻿
 
-namespace cocosocket4unity
+namespace CxExtension
 {
     using System;
     using System.Collections.Generic;

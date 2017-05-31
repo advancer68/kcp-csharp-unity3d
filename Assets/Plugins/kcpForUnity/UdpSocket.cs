@@ -33,6 +33,7 @@ namespace KcpProject.v2
         private AutoResetEvent kcpThreadNotify;
         private QueueSync<ByteBuf> rcv_queue = new QueueSync<ByteBuf>(128);
         private QueueSync<ByteBuf> snd_queue = new QueueSync<ByteBuf>(128);
+        private CxExtension.ObjectPool<Kcp.Segment> mSegpool;
         public UdpSocket(Action<byte[], int> handler)
         {
             onProcessMessage = handler;
@@ -70,10 +71,11 @@ namespace KcpProject.v2
                     mUdpClient.Send(buf.RawData,buf.Size );
                 }
             });
-
+            mSegpool = new CxExtension.ObjectPool<Kcp.Segment>();
+            mKcp.SetSegmentHook(mSegpool.Get, mSegpool.Return);
             // fast mode.
             mKcp.NoDelay(1, 1, 2, 1);
-            mKcp.WndSize(4096, 4096);
+            mKcp.WndSize(255, 255);
         }
 
         void ReceiveCallback(IAsyncResult ar)
@@ -87,7 +89,6 @@ namespace KcpProject.v2
                 var dt = new ByteBuf(data);
                 rcv_queue.Enqueue(dt);
                 kcpThreadNotify.Set();
-                //rcv_notify.Set();
             }
 
             if (mUdpClient != null)
