@@ -7,6 +7,10 @@ using System.Text;
 public static class kcpUtil
 {
     private static DateTime offTime = new DateTime(2017, 1, 1);
+    static kcpUtil()
+    {
+        offTime = DateTime.Now;
+    }
     /// <summary>
     /// DateTime.Now.Subtract(offTime).TotalMilliseconds
     /// </summary>
