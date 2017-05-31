@@ -117,7 +117,7 @@ public class Kcp
         {
             if (size > 0)
             {
-                this.data.Capacity(size);
+                this.data.EnsureCapacity(size);
             }
         }
         public void Reset()
@@ -144,16 +144,16 @@ public class Kcp
          */
         public int Encode(ByteBuf buf)
         {
-            int off = buf.WriterIndex();
-            buf.WriteIntLE(conv);
+            int off = buf.WritePos;
+            buf.WriteInt32(conv);
             buf.WriteByte(cmd);
             buf.WriteByte((byte)frg);
-            buf.WriteShortLE((short)wnd);
-            buf.WriteIntLE(ts);
-            buf.WriteIntLE(sn);
-            buf.WriteIntLE(una);
-            buf.WriteIntLE(data == null ? 0 : data.PeekSize());
-            return buf.WriterIndex() - off;
+            buf.WriteInt16((short)wnd);
+            buf.WriteInt32(ts);
+            buf.WriteInt32(sn);
+            buf.WriteInt32(una);
+            buf.WriteInt32(data == null ? 0 : data.Size);
+            return buf.WritePos - off;
         }
     }
 
@@ -197,7 +197,7 @@ public class Kcp
         Segment seq = rcv_queue.First();
         if (seq.frg == 0)
         {
-            return seq.data.PeekSize();
+            return seq.data.Size;
         }
         if (rcv_queue.Count < seq.frg + 1)
         {
@@ -207,7 +207,7 @@ public class Kcp
         for (int i = 0; i < rcv_queue.Count; i++)
         {
             Segment item = rcv_queue[i];
-            length += item.data.PeekSize();
+            length += item.data.Size;
             if (item.frg == 0)
             {
                 break;
@@ -240,8 +240,8 @@ public class Kcp
         for (int i = 0; i < rcv_queue.Count; i++)
         {
             Segment seg = rcv_queue[i];
-            len += seg.data.PeekSize();
-            buffer.WriteBytes(seg.data);
+            len += seg.data.Size;
+            buffer.WriteBytesFrom(seg.data);
             c++;
             if (seg.frg == 0)
             {
@@ -297,7 +297,7 @@ public class Kcp
         else
         {
             seg = segNewFunc();
-            seg.data.Capacity(size);
+            seg.data.EnsureCapacity(size);
         }
         return seg;
     }
@@ -326,7 +326,7 @@ public class Kcp
      */
     public int Send(ByteBuf buffer)
     {
-        if (buffer.PeekSize() == 0)
+        if (buffer.Size == 0)
         {
             return -1;
         }
@@ -334,26 +334,26 @@ public class Kcp
         if (this.stream && this.snd_queue.Count > 0)
         {
             Segment seg = snd_queue.Last();
-            if (seg.data != null && seg.data.PeekSize() < mss)
+            if (seg.data != null && seg.data.Size < mss)
             {
-                int capacity = mss - seg.data.PeekSize();
-                int extend = (buffer.PeekSize() < capacity) ? buffer.PeekSize() : capacity;
-                seg.data.WriteBytes(buffer, extend);
+                int capacity = mss - seg.data.Size;
+                int extend = (buffer.Size < capacity) ? buffer.Size : capacity;
+                seg.data.WriteBytesFrom(buffer, extend);
                 SegmentDelete(seg);
-                if (buffer.PeekSize() == 0)
+                if (buffer.Size == 0)
                 {
                     return 0;
                 }
             }
         }
         int count;
-        if (buffer.PeekSize() <= mss)
+        if (buffer.Size <= mss)
         {
             count = 1;
         }
         else
         {
-            count = (buffer.PeekSize() + mss - 1) / mss;
+            count = (buffer.Size + mss - 1) / mss;
         }
         if (count > 255)
         {
@@ -366,9 +366,9 @@ public class Kcp
         //fragment
         for (int i = 0; i < count; i++)
         {
-            int size = buffer.PeekSize() > mss ? mss : buffer.PeekSize();
+            int size = buffer.Size > mss ? mss : buffer.Size;
             Segment seg = SegmentNew(size);
-            seg.data.WriteBytes(buffer, size);
+            seg.data.WriteBytesFrom(buffer, size);
             seg.frg = this.stream ? 0 : count - i - 1;
             snd_queue.Add(seg);
         }
@@ -569,7 +569,7 @@ public class Kcp
     {
         int una_temp = snd_una;
         int flag = 0, maxack = 0;
-        if (data == null || data.PeekSize() < IKCP_OVERHEAD)
+        if (data == null || data.Size < IKCP_OVERHEAD)
         {
             return -1;
         }
@@ -584,23 +584,23 @@ public class Kcp
             int wnd;
             byte cmd;
             byte frg;
-            if (data.PeekSize() < IKCP_OVERHEAD)
+            if (data.Size < IKCP_OVERHEAD)
             {
                 break;
             }
-            conv_ = data.ReadIntLE();
+            conv_ = data.ReadInt32();
             if (this.conv != conv_)
             {
                 return -1;
             }
             cmd = data.ReadByte();
             frg = data.ReadByte();
-            wnd = data.ReadShortLE();
-            ts = data.ReadIntLE();
-            sn = data.ReadIntLE();
-            una = data.ReadIntLE();
-            len = data.ReadIntLE();
-            if (data.PeekSize() < len)
+            wnd = data.ReadInt16();
+            ts = data.ReadInt32();
+            sn = data.ReadInt32();
+            una = data.ReadInt32();
+            len = data.ReadInt32();
+            if (data.Size < len)
             {
                 return -2;
             }
@@ -652,7 +652,7 @@ public class Kcp
                             seg.una = una;
                             if (len > 0)
                             {
-                                seg.data.WriteBytes(data, len);
+                                seg.data.WriteBytesFrom(data, len);
                                 readed = true;
                             }
                             Parse_data(seg);
@@ -750,7 +750,7 @@ public class Kcp
         int c = acklist.Count / 2;
         for (int i = 0; i < c; i++)
         {
-            if (buffer.PeekSize() + IKCP_OVERHEAD > mtu)
+            if (buffer.Size + IKCP_OVERHEAD > mtu)
             {
                 this.Output(buffer);
             }
@@ -791,7 +791,7 @@ public class Kcp
         if ((probe & IKCP_ASK_SEND) != 0)
         {
             seg.cmd = IKCP_CMD_WASK;
-            if (buffer.PeekSize() + IKCP_OVERHEAD > mtu)
+            if (buffer.Size + IKCP_OVERHEAD > mtu)
             {
                 this.Output(buffer);
             }
@@ -801,7 +801,7 @@ public class Kcp
         if ((probe & IKCP_ASK_TELL) != 0)
         {
             seg.cmd = IKCP_CMD_WINS;
-            if (buffer.PeekSize() + IKCP_OVERHEAD > mtu)
+            if (buffer.Size + IKCP_OVERHEAD > mtu)
             {
                 this.Output(buffer);
             }
@@ -885,15 +885,15 @@ public class Kcp
                 segment.ts = cur;
                 segment.wnd = seg.wnd;
                 segment.una = rcv_nxt;
-                int need = IKCP_OVERHEAD + segment.data.PeekSize();
-                if (buffer.PeekSize() + need > mtu)
+                int need = IKCP_OVERHEAD + segment.data.Size;
+                if (buffer.Size + need > mtu)
                 {
                     this.Output(buffer);
                 }
                 segment.Encode(buffer);
-                if (segment.data.PeekSize() > 0)
+                if (segment.data.Size > 0)
                 {
-                    buffer.WriteBytes(segment.data.Duplicate());
+                    buffer.WriteBytesFrom(segment.data);
                 }
                 if (segment.xmit >= dead_link)
                 {
@@ -902,7 +902,7 @@ public class Kcp
             }
         }
         // flash remain segments
-        if (buffer.PeekSize() > 0)
+        if (buffer.Size > 0)
         {
             this.Output(buffer);
         }
@@ -1031,7 +1031,7 @@ public class Kcp
         //ByteBuf buf = new ByteBuf((mtu + IKCP_OVERHEAD) * 3);
         this.mtu = mtu;
         mss = mtu - IKCP_OVERHEAD;
-        buffer.Capacity((mtu + IKCP_OVERHEAD) * 3);
+        buffer.EnsureCapacity((mtu + IKCP_OVERHEAD) * 3);
         return 0;
     }
 

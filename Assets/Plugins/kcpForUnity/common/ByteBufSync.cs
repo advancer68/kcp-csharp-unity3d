@@ -21,7 +21,7 @@ namespace System.Collections
         {
             lock (locker)
             {
-                m_writeQue.WriteBytes(buf);
+                m_writeQue.WriteBytesFrom(buf);
             }
         }
         public void Swap()

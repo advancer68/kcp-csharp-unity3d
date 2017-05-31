@@ -67,9 +67,7 @@ namespace KcpProject.v2
                 //if (kcpUtil.CountIncludePercent(lostPackRate))
                 //if (testUtil.RandIncludePercent(100 - lostPackRate))
                 {
-                    var sndBuff = buf.GetRaw();
-                    var length = buf.PeekSize();
-                    mUdpClient.Send(sndBuff,length );
+                    mUdpClient.Send(buf.RawData,buf.Size );
                 }
             });
 
@@ -129,8 +127,8 @@ namespace KcpProject.v2
         public ByteBuf Pack(byte[] data)
         {
             var btBuf = new ByteBuf(data.Length + 4);
-            btBuf.WriteIntLE(data.Length);
-            btBuf.WriteBytes(data);
+            btBuf.WriteInt32(data.Length);
+            btBuf.WriteBytesFrom(data);
             return btBuf;
         }
         public void Unpack(ByteBuf buf)
@@ -141,7 +139,7 @@ namespace KcpProject.v2
                 {
                     if (buf.PeekSize() >= 4)
                     {
-                        nxtPacketSize = buf.ReadIntLE();
+                        nxtPacketSize = buf.ReadInt32();
                     }
                     else
                     {
