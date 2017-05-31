@@ -249,9 +249,13 @@ public class ByteBuf
         }
         return 0;
     }
-    public bool CanRead(int num)
+    public bool CanRead(int index,int length)
     {
-        return readerIndex + num < writerIndex;
+        return readerIndex + index + length <= writerIndex;
+    }
+    public bool CanRead(int length)
+    {
+        return CanRead(0, length);
     }
     /// <summary>
     /// 小头读取
@@ -267,6 +271,33 @@ public class ByteBuf
             return (short)len;
         }
         return 0;
+    }
+    public int GetToBytes(int srcIndx,byte[] destArray,int destIndx,int length)
+    {
+        if (!CanRead(srcIndx,length))
+        {
+            return -1;
+        }
+        if (destIndx + length > destArray.Length)
+        {
+            return -2;
+        }
+        Array.Copy(data, readerIndex + srcIndx, destArray, destIndx, length);
+        return length;
+    }
+    /// <summary>
+    /// read to destArray
+    /// </summary>
+    /// <param name="srcIndx">remain content offset index</param>
+    /// <param name="destArray"></param>
+    /// <param name="destIndx"></param>
+    /// <param name="count"></param>
+    /// <returns></returns>
+    public int ReadToBytes(int srcIndx, byte[] destArray, int destIndx, int length)
+    {
+        int ret = GetToBytes(srcIndx, destArray, destIndx, length);
+        readerIndex += length;
+        return ret;
     }
     /// <summary>
     /// 可读字节数

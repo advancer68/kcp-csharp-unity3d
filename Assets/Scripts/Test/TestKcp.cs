@@ -35,6 +35,8 @@ public class TestKcp : MonoBehaviour
     public int pckCalcCur = 0;
     public bool runOnStart = true;
     public bool tcpRuning = false;
+    public bool kcpRuning = false;
+
     public bool rcvSync = false;
     public UnityEngine.UI.Text kcpRttText;
     public UnityEngine.UI.Text tcpRttText;
@@ -70,10 +72,10 @@ public class TestKcp : MonoBehaviour
         }
     }
     #region KcpTest
-    public void KcpTestStart()
+    public void KcpStart()
     {
         //enabled = true;
-        kcpClient = new UdpSocket((buff) =>
+        kcpClient = new UdpSocket((buff,length) =>
         {
             var rcvtime = kcpUtil.nowTotalMilliseconds;
             var sndtime = BitConverter.ToUInt32(buff, 0);
@@ -83,15 +85,25 @@ public class TestKcp : MonoBehaviour
         });
         kcpClient.Connect(curHost.host, curHost.portKcp);
     }
-    public void KcpTestStop()
+    public void KcpSend(byte[] buff)
+    {
+        if (kcpClient != null)
+        {
+            if (kcpClient.Connected)
+            {
+                kcpClient.Send(buff);
+            }
+        }
+    }
+    public void KcpStop()
     {
         //enabled = false;
         kcpClient.Close();
     }
-    public void KcpTestRestart()
+    public void KcpRestart()
     {
-        KcpTestStop();
-        KcpTestStart();
+        KcpStop();
+        KcpStart();
     }
     #endregion
     #region TcpTest
@@ -104,7 +116,10 @@ public class TestKcp : MonoBehaviour
     }
     public void TcpSend(byte[] buff)
     {
-        tcpClient.Send(buff);
+        if (tcpRuning)
+        {
+            tcpClient.Send(buff);
+        }
     }
     public void TcpStop()
     {
@@ -115,20 +130,23 @@ public class TestKcp : MonoBehaviour
     #endregion
     public void TestSend()
     {
-        SendTestBuff();
+        var buff = new byte[msgSize];
+        buff.PackInSendTime();//send time
+        //buff.PackInInt(rttKcp, 4);//pre rtt
+        buff.PackInInt(mLosePackRate, 8);
+
+        KcpSend(buff);
+        TcpSend(buff);
     }
     public void TestStart()
     {
         TcpStart();
-        KcpTestStart();
+        KcpStart();
     }
     public void TestStop()
     {
         TcpStop();
-        KcpTestStop();
-    }
-    private void OnGUI()
-    {
+        KcpStop();
     }
     public void SendTestBuff()
     {
@@ -145,7 +163,7 @@ public class TestKcp : MonoBehaviour
         }
         if (tcpRuning)
         {
-            tcpClient.Send(buff);
+            TcpSend(buff);
         }
         //Debug.LogFormat("send sessage:{0}", content);
     }
@@ -158,13 +176,13 @@ public class TestKcp : MonoBehaviour
             if (used > interval)
             {
                 used -= interval;
-                SendTestBuff();
+                 TestSend();
             }
         }
         if (tcpClient != null)
         {
-            rttTcpMax = Math.Max(tcpClient.rtt,rttTcpMax);
-            tcpRttText.text = string.Format("tcp rtt:{0} max:{1}", tcpClient.rtt,rttTcpMax);
+            rttTcpMax = Math.Max(tcpClient.rtt, rttTcpMax);
+            tcpRttText.text = string.Format("tcp rtt:{0} max:{1}", tcpClient.rtt, rttTcpMax);
         }
         if (pckCalcCur >= pckCalcSize)
         {
@@ -172,7 +190,7 @@ public class TestKcp : MonoBehaviour
             rttKcp = (int)meanTime;
             rttKcpMax = Math.Max((int)meanTime, rttKcpMax);
 
-            kcpRttText.text = string.Format("kcp rtt:{0} max:{1}", (int)meanTime,rttKcpMax);
+            kcpRttText.text = string.Format("kcp rtt:{0} max:{1}", (int)meanTime, rttKcpMax);
             pckCalcCur = 0;
             pckCntFrmTime = 0;
         }

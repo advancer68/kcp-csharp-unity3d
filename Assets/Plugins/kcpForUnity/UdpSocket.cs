@@ -18,23 +18,25 @@ namespace KcpProject.v2
             Disconnect
         }
         public static int lostPackRate = 10;
-        private BytePacker packer;
         private ByteBuf rcvCache = new ByteBuf(1500);
+        private byte[] msgBuffCache = new byte[0];
         private State state = State.Disconnect;
-        public bool rcvSync = false;
+        public bool rcvSync = true;
 
         private UdpClient mUdpClient;
         private IPEndPoint mIPEndPoint;
         private IPEndPoint mSvrEndPoint;
         private int nxtPacketSize = -1;
         private Kcp mKcp;
+        private Action<byte[], int> onProcessMessage;
         public int rtt = 0;
-
+        private AutoResetEvent kcpThreadNotify;
         private QueueSync<ByteBuf> rcv_queue = new QueueSync<ByteBuf>(128);
         private QueueSync<ByteBuf> snd_queue = new QueueSync<ByteBuf>(128);
-        public UdpSocket(Action<byte[]> handler)
+        public UdpSocket(Action<byte[], int> handler)
         {
-            packer = new BytePacker(handler);
+            onProcessMessage = handler;
+            kcpThreadNotify = new AutoResetEvent(false);
         }
 
         public void Connect(string host, int port)
@@ -63,9 +65,11 @@ namespace KcpProject.v2
             mKcp = new Kcp((int)conv, (ByteBuf buf) =>
             {
                 //if (kcpUtil.CountIncludePercent(lostPackRate))
-                if (testUtil.RandIncludePercent(100- lostPackRate))
+                //if (testUtil.RandIncludePercent(100 - lostPackRate))
                 {
-                    mUdpClient.Send(buf.GetRaw(), buf.PeekSize());
+                    var sndBuff = buf.GetRaw();
+                    var length = buf.PeekSize();
+                    mUdpClient.Send(sndBuff,length );
                 }
             });
 
@@ -84,6 +88,7 @@ namespace KcpProject.v2
             {
                 var dt = new ByteBuf(data);
                 rcv_queue.Enqueue(dt);
+                kcpThreadNotify.Set();
                 //rcv_notify.Set();
             }
 
@@ -94,12 +99,11 @@ namespace KcpProject.v2
             }
         }
 
-        public void Send(byte[] buf)
+        public void Send(byte[] data)
         {
-            var btBuf = new ByteBuf(buf.Length + 4);
-            btBuf.WriteIntLE(buf.Length);
-            btBuf.WriteBytes(buf);
+            var btBuf = Pack(data);
             snd_queue.Enqueue(btBuf);
+            kcpThreadNotify.Set();
         }
         private void SendPacket(ByteBuf content)
         {
@@ -109,6 +113,25 @@ namespace KcpProject.v2
         {
             state = State.Disconnect;
             mUdpClient.Close();
+        }
+        public void ProcessMessage(byte[] buff, int length)
+        {
+            if (onProcessMessage != null)
+            {
+                onProcessMessage(buff, length);
+            }
+        }
+        /// <summary>
+        /// pack data to:data length to data pre
+        /// </summary>
+        /// <param name="buf"></param>
+        /// <returns></returns>
+        public ByteBuf Pack(byte[] data)
+        {
+            var btBuf = new ByteBuf(data.Length + 4);
+            btBuf.WriteIntLE(data.Length);
+            btBuf.WriteBytes(data);
+            return btBuf;
         }
         public void Unpack(ByteBuf buf)
         {
@@ -125,10 +148,14 @@ namespace KcpProject.v2
                         break;
                     }
                 }
-                if (buf.PeekSize() >= nxtPacketSize )
+                if (buf.PeekSize() >= nxtPacketSize)
                 {
                     //var data = buf.read
-                    
+                    msgBuffCache = msgBuffCache.Recapacity(nxtPacketSize);
+                    int length = buf.ReadToBytes(0, msgBuffCache, 0, nxtPacketSize);
+                    ProcessMessage(msgBuffCache, nxtPacketSize);
+
+                    nxtPacketSize = -1;
                 }
                 else
                 {
@@ -173,7 +200,7 @@ namespace KcpProject.v2
                         else { break; }
                     }
                     t.Stop();
-                    if (t.ElapsedMilliseconds > 10)
+                    if (t.ElapsedMilliseconds > 5)
                     {
                         Console.WriteLine(string.Format("used time:{0}", t.ElapsedMilliseconds));
                     }
@@ -186,7 +213,10 @@ namespace KcpProject.v2
                 {
                     //Console.WriteLine("thread run error");
                 }
-                Thread.Sleep(1);
+                if (kcpThreadNotify.WaitOne(5))
+                {
+                    Thread.Sleep(2);
+                }
             }
         }
     }
